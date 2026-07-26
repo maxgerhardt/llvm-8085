@@ -27,7 +27,7 @@ __ctzdi2:
 
 	; Low 4 bytes non-zero: push them and call __ctzsi2
 	; __ctzsi2 expects [SP+2..5] = x (i32)
-	lxi	h, 4
+	lxi	h, 5
 	dad	sp
 	mov	b, m		; byte 3
 	dcx	h
@@ -61,7 +61,7 @@ __ctzdi2:
 	jz	.Lctzdi_allzero
 
 	; High 4 bytes non-zero: push them and call __ctzsi2
-	lxi	h, 8
+	lxi	h, 9
 	dad	sp
 	mov	b, m		; byte 7
 	dcx	h

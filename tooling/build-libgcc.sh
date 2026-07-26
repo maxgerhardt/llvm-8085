@@ -2,7 +2,18 @@
 set -euo pipefail
 
 ROOT="$(cd "$(dirname "${BASH_SOURCE[0]}")/.." && pwd)"
-TOOLBIN="${TOOLBIN:-$ROOT/llvm-project/build-clang-8085/bin}"
+# Locate the toolchain. A single-config build puts binaries in build*/bin;
+# a multi-config (e.g. MSVC/Xcode) build puts them in build*/<Config>/bin.
+if [[ -z "${TOOLBIN:-}" ]]; then
+  for cand in \
+    "$ROOT/llvm-project/build-clang-8085/bin" \
+    "$ROOT/llvm-project/build-clang-8085/Release/bin"; do
+    if [[ -x "$cand/clang" || -x "$cand/clang.exe" ]]; then
+      TOOLBIN="$cand"; break
+    fi
+  done
+  TOOLBIN="${TOOLBIN:-$ROOT/llvm-project/build-clang-8085/bin}"
+fi
 SYSROOT="${SYSROOT:-$ROOT/sysroot}"
 
 # Parse --undoc flag
@@ -21,10 +32,17 @@ BUILTINS_DIR="${ROOT}/llvm-project/compiler-rt/lib/builtins"
 LIBI8085_BUILTINS_DIR="${ROOT}/builtins"
 OUT_DIR="${SYSROOT}/lib/builtins"
 
-# Extra flags for undocumented instruction support
+# Extra flags for undocumented instruction support.
+# The undoc feature is enabled by appending "+undoc" to the target triple
+# (e.g. -target i8085-unknown-elf+undoc). The old "-Xclang -target-feature
+# -Xclang +undoc" form no longer reaches the integrated assembler for .S
+# files, so the triple suffix is the supported path. -DUNDOC still selects
+# the undoc code paths in the hand-written assembly (see undoc_macros.inc).
+ASM_TARGET="i8085-unknown-elf"
 ASM_UNDOC_FLAGS=""
 if [[ "${UNDOC}" -eq 1 ]]; then
-  ASM_UNDOC_FLAGS="-DUNDOC -Xclang -target-feature -Xclang +undoc"
+  ASM_TARGET="i8085-unknown-elf+undoc"
+  ASM_UNDOC_FLAGS="-DUNDOC"
   echo "Building with undocumented 8085 instruction support"
 fi
 
@@ -142,7 +160,7 @@ done
 # Target-specific helpers.
 if [[ -f "${LIBI8085_BUILTINS_DIR}/clzsi2.S" ]]; then
   # shellcheck disable=SC2086
-  "${CLANG}" -target i8085-unknown-elf ${ASM_UNDOC_FLAGS} -c "${LIBI8085_BUILTINS_DIR}/clzsi2.S" \
+  "${CLANG}" -target ${ASM_TARGET} ${ASM_UNDOC_FLAGS} -c "${LIBI8085_BUILTINS_DIR}/clzsi2.S" \
     -o "${OUT_DIR}/clzsi2.o"
 else
   echo "missing source: ${LIBI8085_BUILTINS_DIR}/clzsi2.S" >&2
@@ -167,7 +185,7 @@ for helper in memops int_mul int_div int_shift int_shift64 int_arith64 int_divdi
     exit 1
   fi
   # shellcheck disable=SC2086
-  "${CLANG}" -target i8085-unknown-elf ${ASM_UNDOC_FLAGS} -c "${src}" -o "${OUT_DIR}/${helper}.o"
+  "${CLANG}" -target ${ASM_TARGET} ${ASM_UNDOC_FLAGS} -c "${src}" -o "${OUT_DIR}/${helper}.o"
 done
 
 for helper in floatdisf floatundisf; do

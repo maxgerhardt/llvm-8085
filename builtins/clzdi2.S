@@ -28,7 +28,7 @@ __clzdi2:
 	; High 4 bytes non-zero: push them and call __clzsi2
 	; __clzsi2 expects [SP+2..5] = x (i32, little-endian)
 	; bytes: SP+6=byte4(LSB of upper), SP+9=byte7(MSB)
-	lxi	h, 8
+	lxi	h, 9
 	dad	sp
 	mov	b, m		; byte 7
 	dcx	h
@@ -62,7 +62,7 @@ __clzdi2:
 	jz	.Lclzdi_allzero
 
 	; Low 4 bytes non-zero: push them and call __clzsi2
-	lxi	h, 4
+	lxi	h, 5
 	dad	sp
 	mov	b, m		; byte 3
 	dcx	h
